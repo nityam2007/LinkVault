@@ -1,0 +1,194 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles */
+:root {
+    --primary-color: #3B82F6;
+    --secondary-color: #6366F1;
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.dark ::-webkit-scrollbar-track {
+    background: #1f2937;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
+
+/* Bookmark card hover effect */
+.bookmark-card {
+    @apply transition-all duration-200 ease-in-out;
+}
+
+.bookmark-card:hover {
+    @apply shadow-lg transform -translate-y-0.5;
+}
+
+/* Tag chip styles */
+.tag-chip {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+}
+
+/* Collection tree styles */
+.collection-item {
+    @apply flex items-center py-1.5 px-2 rounded-md cursor-pointer;
+}
+
+.collection-item:hover {
+    @apply bg-gray-100 dark:bg-gray-700;
+}
+
+.collection-item.active {
+    @apply bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-200;
+}
+
+/* Archive status indicators */
+.archive-status-none {
+    @apply text-gray-400;
+}
+
+.archive-status-pending {
+    @apply text-yellow-500 animate-pulse;
+}
+
+.archive-status-processing {
+    @apply text-blue-500 animate-spin;
+}
+
+.archive-status-completed {
+    @apply text-green-500;
+}
+
+.archive-status-failed {
+    @apply text-red-500;
+}
+
+/* Reader view */
+.reader-content {
+    @apply prose prose-lg dark:prose-invert max-w-none;
+}
+
+.reader-content img {
+    @apply rounded-lg shadow-md;
+}
+
+/* Toast notifications */
+.toast {
+    @apply fixed bottom-4 right-4 z-50;
+}
+
+.toast-item {
+    @apply flex items-center p-4 mb-2 rounded-lg shadow-lg;
+}
+
+/* Loading skeleton */
+.skeleton {
+    @apply animate-pulse bg-gray-200 dark:bg-gray-700 rounded;
+}
+
+/* Dropdown menu */
+.dropdown-menu {
+    @apply absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50;
+}
+
+.dropdown-item {
+    @apply flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer;
+}
+
+/* Modal */
+.modal-overlay {
+    @apply fixed inset-0 bg-black bg-opacity-50 z-40;
+}
+
+.modal-content {
+    @apply fixed inset-0 z-50 flex items-center justify-center p-4;
+}
+
+.modal-panel {
+    @apply bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto;
+}
+
+/* Search input */
+.search-input {
+    @apply w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+/* Button styles */
+.btn {
+    @apply inline-flex items-center justify-center px-4 py-2 rounded-lg font-medium transition-colors duration-200;
+}
+
+.btn-primary {
+    @apply bg-blue-600 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2;
+}
+
+.btn-secondary {
+    @apply bg-gray-200 text-gray-800 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600;
+}
+
+.btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700 focus:ring-2 focus:ring-red-500 focus:ring-offset-2;
+}
+
+.btn-ghost {
+    @apply text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700;
+}
+
+/* Form input */
+.form-input {
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+}
+
+.form-label {
+    @apply block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1;
+}
+
+/* Sidebar */
+.sidebar {
+    @apply fixed left-0 top-0 h-full w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 overflow-y-auto;
+}
+
+/* Main content area */
+.main-content {
+    @apply ml-64 p-6;
+}
+
+/* Grid view */
+.bookmark-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4;
+}
+
+/* List view */
+.bookmark-list {
+    @apply divide-y divide-gray-200 dark:divide-gray-700;
+}
+
+.bookmark-list-item {
+    @apply flex items-center py-3 hover:bg-gray-50 dark:hover:bg-gray-800;
+}
+
+/* Favicon */
+.favicon {
+    @apply w-4 h-4 rounded;
+}
+
+/* Import progress */
+.import-progress {
+    @apply w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden;
+}
+
+.import-progress-bar {
+    @apply h-full bg-blue-600 transition-all duration-300;
+}

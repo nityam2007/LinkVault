@@ -57,15 +57,20 @@
     
     <!-- Content -->
     <div class="p-4">
-      <!-- Domain -->
-      <div class="flex items-center text-xs text-gray-500 mb-2">
-        <img 
-          v-if="favicon"
-          :src="favicon"
-          class="favicon mr-1.5"
-          @error="faviconError = true"
-        />
-        <span class="truncate">{{ domain }}</span>
+      <!-- Domain & Site Info -->
+      <div class="flex items-center justify-between text-xs text-gray-500 mb-2">
+        <div class="flex items-center min-w-0">
+          <img 
+            v-if="favicon"
+            :src="favicon"
+            class="favicon mr-1.5 flex-shrink-0"
+            @error="faviconError = true"
+          />
+          <span class="truncate">{{ bookmark.site_name || domain }}</span>
+        </div>
+        <span v-if="bookmark.reading_time" class="text-gray-400 flex-shrink-0 ml-2">
+          {{ bookmark.reading_time }} min read
+        </span>
       </div>
       
       <!-- Title -->
@@ -76,6 +81,11 @@
       <!-- Description -->
       <p v-if="bookmark.description" class="text-sm text-gray-500 line-clamp-2 mb-3">
         {{ bookmark.description }}
+      </p>
+      
+      <!-- Author -->
+      <p v-if="bookmark.author" class="text-xs text-gray-400 mb-2">
+        By {{ bookmark.author }}
       </p>
       
       <!-- Tags -->
@@ -153,8 +163,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useBookmarkStore } from '../stores/bookmarks';
+import axios from 'axios';
 
 const props = defineProps({
   bookmark: {
@@ -191,9 +202,12 @@ const formatDate = (date) => {
 };
 
 const toggleFavorite = async () => {
-  await bookmarkStore.updateBookmark(props.bookmark.id, {
-    is_favorite: !props.bookmark.is_favorite,
-  });
+  try {
+    await axios.post(`/api/v1/bookmarks/${props.bookmark.id}/favorite`);
+    props.bookmark.is_favorite = !props.bookmark.is_favorite;
+  } catch (error) {
+    console.error('Failed to toggle favorite:', error);
+  }
 };
 
 const archive = async () => {
@@ -206,10 +220,15 @@ const viewArchive = () => {
   showMenu.value = false;
 };
 
-// Close menu when clicking outside
-if (typeof window !== 'undefined') {
-  document.addEventListener('click', () => {
-    showMenu.value = false;
-  });
-}
+const handleOutsideClick = () => {
+  showMenu.value = false;
+};
+
+onMounted(() => {
+  document.addEventListener('click', handleOutsideClick);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleOutsideClick);
+});
 </script>

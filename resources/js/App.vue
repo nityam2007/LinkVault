@@ -66,20 +66,27 @@
         <CollectionTree :collections="collections || []" />
       </div>
 
-      <!-- Tags -->
+      <!-- Tags (Limited to top 15) -->
       <div class="px-4 mt-6">
-        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Tags</h3>
-        <div class="flex flex-wrap gap-1">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Popular Tags</h3>
+          <router-link to="/tags" class="text-xs text-blue-600 hover:text-blue-500">
+            View all
+          </router-link>
+        </div>
+        <div v-if="popularTags && popularTags.length > 0" class="flex flex-wrap gap-1.5">
           <span 
-            v-for="tag in popularTags" 
+            v-for="tag in popularTags.slice(0, 15)" 
             :key="tag.id"
-            class="tag-chip cursor-pointer"
-            :style="{ backgroundColor: tag.color + '20', color: tag.color }"
+            class="tag-chip cursor-pointer text-xs"
+            :style="{ backgroundColor: (tag.color || '#6B7280') + '20', color: tag.color || '#6B7280' }"
             @click="filterByTag(tag)"
           >
             {{ tag.name }}
+            <span v-if="tag.usage_count" class="ml-1 opacity-60">{{ tag.usage_count }}</span>
           </span>
         </div>
+        <p v-else class="text-xs text-gray-400 italic">No tags yet</p>
       </div>
 
       <!-- User Menu -->

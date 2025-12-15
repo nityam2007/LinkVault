@@ -34,19 +34,25 @@
     <!-- Collections grid -->
     <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <div 
-        v-for="collection in collections" 
+        v-for="collection in flatCollectionsForDisplay" 
         :key="collection.id"
         class="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer"
+        :class="{ 'ml-4': collection.depth > 0 }"
         @click="$router.push(`/collections/${collection.id}`)"
       >
         <div class="p-6">
           <div class="flex items-start justify-between">
             <div class="flex items-center">
               <span 
-                class="w-4 h-4 rounded-full mr-3"
+                class="w-4 h-4 rounded-full mr-3 flex-shrink-0"
                 :style="{ backgroundColor: collection.color || '#6B7280' }"
               ></span>
-              <h3 class="font-semibold text-gray-900 dark:text-white">{{ collection.name }}</h3>
+              <div>
+                <h3 class="font-semibold text-gray-900 dark:text-white">{{ collection.name }}</h3>
+                <p v-if="collection.parentName" class="text-xs text-gray-400">
+                  in {{ collection.parentName }}
+                </p>
+              </div>
             </div>
             
             <div class="relative">
@@ -165,13 +171,15 @@
                   <select v-model="form.parent_id" class="form-input">
                     <option :value="null">None (Root level)</option>
                     <option 
-                      v-for="c in (collections || []).filter(c => c.id !== editingCollection?.id)" 
+                      v-for="c in flatCollectionsForSelect" 
                       :key="c.id"
                       :value="c.id"
+                      :disabled="c.id === editingCollection?.id || isDescendantOf(c.id, editingCollection?.id)"
                     >
-                      {{ c.name }}
+                      {{ '—'.repeat(c.depth || 0) }} {{ c.name }}
                     </option>
                   </select>
+                  <p class="text-xs text-gray-500 mt-1">Max depth: 10 levels</p>
                 </div>
                 
                 <div class="flex items-center">
@@ -204,7 +212,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { useBookmarkStore } from '../stores/bookmarks';
 
 const bookmarkStore = useBookmarkStore();
@@ -222,6 +230,63 @@ const colors = [
   '#14B8A6', '#06B6D4', '#3B82F6', '#6366F1', '#8B5CF6',
   '#A855F7', '#EC4899', '#F43F5E', '#6B7280',
 ];
+
+// Flatten collections tree for select dropdown with depth
+const flatCollectionsForSelect = computed(() => {
+  const flatten = (items, depth = 0) => {
+    let result = [];
+    for (const item of items) {
+      result.push({ ...item, depth });
+      if (item.children?.length) {
+        result = result.concat(flatten(item.children, depth + 1));
+      }
+    }
+    return result;
+  };
+  return flatten(collections.value || []);
+});
+
+// Flatten collections for grid display with parent name
+const flatCollectionsForDisplay = computed(() => {
+  const flatten = (items, depth = 0, parentName = null) => {
+    let result = [];
+    for (const item of items) {
+      result.push({ ...item, depth, parentName });
+      if (item.children?.length) {
+        result = result.concat(flatten(item.children, depth + 1, item.name));
+      }
+    }
+    return result;
+  };
+  return flatten(collections.value || []);
+});
+
+// Check if a collection is a descendant of another
+const isDescendantOf = (collectionId, potentialAncestorId) => {
+  if (!potentialAncestorId) return false;
+  
+  const findInTree = (items, targetId, ancestorId) => {
+    for (const item of items) {
+      if (item.id === ancestorId) {
+        // Found the ancestor, now check if target is in its descendants
+        const checkDescendants = (children) => {
+          for (const child of children || []) {
+            if (child.id === targetId) return true;
+            if (checkDescendants(child.children)) return true;
+          }
+          return false;
+        };
+        return checkDescendants(item.children);
+      }
+      if (item.children?.length && findInTree(item.children, targetId, ancestorId)) {
+        return true;
+      }
+    }
+    return false;
+  };
+  
+  return findInTree(collections.value || [], collectionId, potentialAncestorId);
+};
 
 const form = reactive({
   name: '',

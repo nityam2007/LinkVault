@@ -240,11 +240,11 @@ const fetchDashboardData = async () => {
   try {
     // Fetch stats
     const statsResponse = await axios.get('/api/v1/dashboard/stats');
-    const statsData = statsResponse.data?.stats || statsResponse.data?.data || {};
-    stats.totalBookmarks = statsData.total_bookmarks || statsData.totalBookmarks || 0;
-    stats.archivedBookmarks = statsData.archived_count || statsData.archivedBookmarks || 0;
-    stats.collections = statsData.collection_count || statsData.collections || 0;
-    stats.tags = statsData.tag_count || statsData.tags || 0;
+    const statsData = statsResponse.data?.stats || statsResponse.data?.data || statsResponse.data || {};
+    stats.totalBookmarks = statsData.total_bookmarks ?? statsData.totalBookmarks ?? 0;
+    stats.archivedBookmarks = statsData.archived_count ?? statsData.archivedBookmarks ?? 0;
+    stats.collections = statsData.collection_count ?? statsData.collections ?? 0;
+    stats.tags = statsData.tag_count ?? statsData.tags ?? 0;
     
     // Fetch recent bookmarks
     const bookmarksResponse = await axios.get('/api/v1/bookmarks', {
@@ -253,6 +253,12 @@ const fetchDashboardData = async () => {
     recentBookmarks.value = bookmarksResponse.data?.bookmarks || bookmarksResponse.data?.data || [];
   } catch (error) {
     console.error('Failed to fetch dashboard data:', error);
+    // Set fallback values on error
+    stats.totalBookmarks = 0;
+    stats.archivedBookmarks = 0;
+    stats.collections = 0;
+    stats.tags = 0;
+    recentBookmarks.value = [];
   } finally {
     loading.value = false;
   }

@@ -11,9 +11,9 @@ use Illuminate\Support\Str;
  */
 class ImageDownloader
 {
-    private const MAX_CONCURRENT = 20;
-    private const MAX_SIZE = 10485760; // 10MB
-    private const TIMEOUT = 15;
+    private const MAX_CONCURRENT = 5; // Reduced for faster processing
+    private const MAX_SIZE = 5242880; // 5MB
+    private const TIMEOUT = 8; // Reduced timeout per image
     private const VALID_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     private const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 

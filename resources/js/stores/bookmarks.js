@@ -20,6 +20,7 @@ export const useBookmarkStore = defineStore('bookmarks', {
             tags: [],
             isFavorite: null,
             isArchived: null,
+            archiveStatus: null,
             sortBy: 'created_at',
             sortDir: 'desc',
         },
@@ -45,19 +46,26 @@ export const useBookmarkStore = defineStore('bookmarks', {
                 const params = {
                     page,
                     per_page: this.pagination.perPage,
-                    ...this.filters,
+                    q: this.filters.search,
+                    collection_id: this.filters.collectionId,
+                    is_favorite: this.filters.isFavorite,
+                    is_archived: this.filters.isArchived,
+                    archive_status: this.filters.archiveStatus,
+                    sort_by: this.filters.sortBy,
+                    sort_dir: this.filters.sortDir,
                 };
 
-                // Clean up null values
+                // Add tags
+                if (this.filters.tags?.length) {
+                    params.tags = this.filters.tags.join(',');
+                }
+
+                // Clean up null/empty values
                 Object.keys(params).forEach(key => {
-                    if (params[key] === null || params[key] === '') {
+                    if (params[key] === null || params[key] === '' || params[key] === undefined) {
                         delete params[key];
                     }
                 });
-
-                if (params.tags?.length) {
-                    params.tags = params.tags.join(',');
-                }
 
                 const response = await axios.get('/api/v1/bookmarks', { params });
                 
@@ -84,7 +92,7 @@ export const useBookmarkStore = defineStore('bookmarks', {
 
             try {
                 const response = await axios.get(`/api/v1/bookmarks/${id}`);
-                this.currentBookmark = response.data.data;
+                this.currentBookmark = response.data.bookmark || response.data.data;
                 return this.currentBookmark;
             } catch (error) {
                 this.error = error.response?.data?.message || 'Failed to fetch bookmark';
@@ -99,11 +107,14 @@ export const useBookmarkStore = defineStore('bookmarks', {
 
             try {
                 const response = await axios.post('/api/v1/bookmarks', data);
-                this.bookmarks.unshift(response.data.data);
-                return response.data.data;
+                const newBookmark = response.data.bookmark || response.data.data;
+                if (newBookmark) {
+                    this.bookmarks.unshift(newBookmark);
+                }
+                return newBookmark;
             } catch (error) {
-                this.error = error.response?.data?.message || 'Failed to create bookmark';
-                return null;
+                this.error = error.response?.data?.message || error.response?.data?.error || 'Failed to create bookmark';
+                throw error;
             } finally {
                 this.loading = false;
             }
@@ -114,14 +125,15 @@ export const useBookmarkStore = defineStore('bookmarks', {
 
             try {
                 const response = await axios.put(`/api/v1/bookmarks/${id}`, data);
+                const updatedBookmark = response.data.bookmark || response.data.data;
                 const index = this.bookmarks.findIndex(b => b.id === id);
                 if (index !== -1) {
-                    this.bookmarks[index] = response.data.data;
+                    this.bookmarks[index] = updatedBookmark;
                 }
                 if (this.currentBookmark?.id === id) {
-                    this.currentBookmark = response.data.data;
+                    this.currentBookmark = updatedBookmark;
                 }
-                return response.data.data;
+                return updatedBookmark;
             } catch (error) {
                 this.error = error.response?.data?.message || 'Failed to update bookmark';
                 return null;
@@ -179,8 +191,11 @@ export const useBookmarkStore = defineStore('bookmarks', {
         async createCollection(data) {
             try {
                 const response = await axios.post('/api/v1/collections', data);
-                this.collections.push(response.data.data);
-                return response.data.data;
+                const newCollection = response.data.collection || response.data.data;
+                if (newCollection) {
+                    this.collections.push(newCollection);
+                }
+                return newCollection;
             } catch (error) {
                 this.error = error.response?.data?.message || 'Failed to create collection';
                 return null;
@@ -190,11 +205,12 @@ export const useBookmarkStore = defineStore('bookmarks', {
         async updateCollection(id, data) {
             try {
                 const response = await axios.put(`/api/v1/collections/${id}`, data);
+                const updatedCollection = response.data.collection || response.data.data;
                 const index = this.collections.findIndex(c => c.id === id);
                 if (index !== -1) {
-                    this.collections[index] = response.data.data;
+                    this.collections[index] = updatedCollection;
                 }
-                return response.data.data;
+                return updatedCollection;
             } catch (error) {
                 this.error = error.response?.data?.message || 'Failed to update collection';
                 return null;
@@ -225,13 +241,20 @@ export const useBookmarkStore = defineStore('bookmarks', {
 
         async fetchPopularTags(limit = 20) {
             try {
-                const response = await axios.get('/api/v1/tags', { 
-                    params: { sort_by: 'bookmarks_count', per_page: limit } 
+                const response = await axios.get('/api/v1/tags/popular', { 
+                    params: { limit } 
                 });
                 // API may return tags in response.data.tags, response.data.data, or as array directly
                 this.popularTags = response.data.tags || response.data.data || (Array.isArray(response.data) ? response.data : []);
             } catch (error) {
-                // Silently fail for popular tags
+                // Fallback to regular tags if popular endpoint doesn't exist
+                try {
+                    const fallbackResponse = await axios.get('/api/v1/tags');
+                    const allTags = fallbackResponse.data.tags || fallbackResponse.data.data || [];
+                    this.popularTags = allTags.slice(0, limit);
+                } catch {
+                    // Silently fail for popular tags
+                }
             }
         },
 

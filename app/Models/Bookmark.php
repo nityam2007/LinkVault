@@ -49,6 +49,63 @@ class Bookmark extends Model
     }
 
     /**
+     * Appended attributes for JSON serialization.
+     */
+    protected $appends = ['og_image', 'site_name', 'author', 'reading_time'];
+
+    /**
+     * Get the OG image from the archive.
+     */
+    public function getOgImageAttribute(): ?string
+    {
+        if (!$this->relationLoaded('archive') || !$this->archive) {
+            return null;
+        }
+        
+        // Return local path or primary image
+        if ($this->archive->og_image_path) {
+            return '/storage/' . $this->archive->og_image_path;
+        }
+        if ($this->archive->primary_image_path) {
+            return '/storage/' . $this->archive->primary_image_path;
+        }
+        return null;
+    }
+
+    /**
+     * Get the site name from the archive metadata.
+     */
+    public function getSiteNameAttribute(): ?string
+    {
+        if (!$this->relationLoaded('archive') || !$this->archive) {
+            return null;
+        }
+        return $this->archive->site_name;
+    }
+
+    /**
+     * Get the author from the archive.
+     */
+    public function getAuthorAttribute(): ?string
+    {
+        if (!$this->relationLoaded('archive') || !$this->archive) {
+            return null;
+        }
+        return $this->archive->author;
+    }
+
+    /**
+     * Get the reading time from the archive.
+     */
+    public function getReadingTimeAttribute(): ?int
+    {
+        if (!$this->relationLoaded('archive') || !$this->archive) {
+            return null;
+        }
+        return $this->archive->reading_time_minutes;
+    }
+
+    /**
      * Boot the model.
      */
     protected static function boot(): void

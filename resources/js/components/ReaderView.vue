@@ -105,9 +105,9 @@
         
         <!-- Article content -->
         <div 
-          v-if="archive?.article_content"
+          v-if="archive?.article_html || archive?.article_text"
           class="reader-content"
-          v-html="archive.article_content"
+          v-html="archive.article_html || `<p>${archive.article_text}</p>`"
         ></div>
         
         <!-- Fallback: No archive -->

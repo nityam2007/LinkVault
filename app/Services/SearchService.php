@@ -23,7 +23,7 @@ class SearchService
     public function search(User $user, array $params): LengthAwarePaginator
     {
         $query = Bookmark::query()
-            ->with(['tags', 'collection'])
+            ->with(['tags', 'collection', 'archive'])
             ->where('user_id', $user->id);
 
         // Full-text search

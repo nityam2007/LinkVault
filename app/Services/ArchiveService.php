@@ -13,9 +13,10 @@ use Illuminate\Support\Facades\Storage;
  */
 class ArchiveService
 {
-    private const MAX_CONCURRENT_IMAGES = 20;
-    private const MAX_IMAGE_SIZE = 10485760; // 10MB
-    private const REQUEST_TIMEOUT = 30;
+    private const MAX_CONCURRENT_IMAGES = 10; // Reduced from 20
+    private const MAX_IMAGE_SIZE = 5242880; // 5MB (reduced from 10MB)
+    private const REQUEST_TIMEOUT = 15; // Reduced from 30
+    private const MAX_IMAGES_TO_DOWNLOAD = 10; // Limit total images
     private const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
     public function __construct(
@@ -51,12 +52,14 @@ class ArchiveService
             $imagesDir = $storageDir . '/images';
             Storage::makeDirectory($imagesDir);
 
-            // Download images from article
+            // Download images from article (limited to prevent slowness)
             $imageMap = [];
             $downloadedImages = [];
             if (!empty($article['images'])) {
+                // Only download first N images to speed up archiving
+                $imagesToDownload = array_slice($article['images'], 0, self::MAX_IMAGES_TO_DOWNLOAD);
                 $result = $this->imageDownloader->downloadImages(
-                    $article['images'],
+                    $imagesToDownload,
                     $imagesDir,
                     $bookmark->url
                 );
@@ -134,6 +137,25 @@ class ArchiveService
                     'is_primary' => $index === 0,
                     'position' => $index,
                 ]);
+            }
+
+            // Update bookmark with better metadata if current values are placeholders
+            $bookmarkUpdates = [];
+            
+            // Update title if it looks like a URL placeholder
+            $bestTitle = $metadata['og_title'] ?? $metadata['title'] ?? null;
+            if ($bestTitle && $this->isTitlePlaceholder($bookmark->title, $bookmark->url)) {
+                $bookmarkUpdates['title'] = mb_substr($bestTitle, 0, 500);
+            }
+            
+            // Update description if empty
+            $bestDescription = $metadata['og_description'] ?? $metadata['description'] ?? null;
+            if ($bestDescription && empty($bookmark->description)) {
+                $bookmarkUpdates['description'] = mb_substr($bestDescription, 0, 5000);
+            }
+            
+            if (!empty($bookmarkUpdates)) {
+                $bookmark->update($bookmarkUpdates);
             }
 
             $bookmark->markArchiveCompleted();
@@ -279,6 +301,39 @@ class ArchiveService
 
         $path = dirname($parsed['path'] ?? '/');
         return $base . $path . '/' . $url;
+    }
+
+    /**
+     * Check if a title looks like a URL placeholder (not a real title).
+     */
+    private function isTitlePlaceholder(?string $title, string $url): bool
+    {
+        if (empty($title)) {
+            return true;
+        }
+
+        // Extract domain from URL
+        $parsed = parse_url($url);
+        $host = $parsed['host'] ?? '';
+        $path = $parsed['path'] ?? '';
+
+        // Title that matches the URL pattern is a placeholder
+        $urlPattern = preg_quote($host, '/') . '.*' . preg_quote(ltrim($path, '/'), '/');
+        if (preg_match("/$urlPattern/i", $title)) {
+            return true;
+        }
+
+        // Title that is just the domain
+        if (strcasecmp($title, $host) === 0) {
+            return true;
+        }
+
+        // Title looks like a URL
+        if (preg_match('/^https?:\/\//', $title)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

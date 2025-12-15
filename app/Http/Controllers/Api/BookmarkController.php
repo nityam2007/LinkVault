@@ -7,10 +7,13 @@ use App\Jobs\ArchiveBookmarkJob;
 use App\Jobs\BatchArchiveJob;
 use App\Models\Bookmark;
 use App\Models\Tag;
+use App\Services\MetadataExtractor;
 use App\Services\SearchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Handles bookmark CRUD operations.
@@ -19,6 +22,7 @@ class BookmarkController extends Controller
 {
     public function __construct(
         private SearchService $searchService,
+        private MetadataExtractor $metadataExtractor,
     ) {}
 
     /**
@@ -76,12 +80,22 @@ class BookmarkController extends Controller
             ], 409);
         }
 
+        // Fetch metadata if title/description not provided
+        $title = $validated['title'] ?? null;
+        $description = $validated['description'] ?? null;
+        
+        if (empty($title) || empty($description)) {
+            $metadata = $this->fetchQuickMetadata($validated['url']);
+            $title = $title ?? $metadata['title'] ?? $this->extractTitleFromUrl($validated['url']);
+            $description = $description ?? $metadata['description'] ?? null;
+        }
+
         // Create bookmark
         $bookmark = Bookmark::create([
             'user_id' => $user->id,
             'url' => $validated['url'],
-            'title' => $validated['title'] ?? $this->extractTitleFromUrl($validated['url']),
-            'description' => $validated['description'] ?? null,
+            'title' => $title,
+            'description' => $description,
             'notes' => $validated['notes'] ?? null,
             'collection_id' => $validated['collection_id'] ?? null,
             'is_favorite' => $validated['is_favorite'] ?? false,
@@ -373,5 +387,54 @@ class BookmarkController extends Controller
     {
         $parsed = parse_url($url);
         return ($parsed['host'] ?? 'Unknown') . ($parsed['path'] ?? '');
+    }
+
+    /**
+     * Quickly fetch metadata for a URL (title, description).
+     * This is a fast, lightweight fetch - full archiving happens in background.
+     *
+     * @return array{title: ?string, description: ?string, favicon: ?string}
+     */
+    private function fetchQuickMetadata(string $url): array
+    {
+        $result = ['title' => null, 'description' => null, 'favicon' => null];
+
+        try {
+            $response = Http::timeout(10)
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Accept' => 'text/html,application/xhtml+xml',
+                ])
+                ->get($url);
+
+            if (!$response->successful()) {
+                return $result;
+            }
+
+            $html = $response->body();
+            
+            // Use MetadataExtractor for proper parsing
+            $metadata = $this->metadataExtractor->extract($html, $url);
+
+            $result['title'] = $metadata['og_title'] ?? $metadata['title'] ?? null;
+            $result['description'] = $metadata['og_description'] ?? $metadata['description'] ?? null;
+            $result['favicon'] = $metadata['favicon'] ?? null;
+
+            // Truncate if too long
+            if ($result['title'] && strlen($result['title']) > 500) {
+                $result['title'] = substr($result['title'], 0, 497) . '...';
+            }
+            if ($result['description'] && strlen($result['description']) > 5000) {
+                $result['description'] = substr($result['description'], 0, 4997) . '...';
+            }
+
+        } catch (\Exception $e) {
+            Log::warning('Failed to fetch metadata for URL', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $result;
     }
 }

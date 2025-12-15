@@ -23,17 +23,18 @@ class CollectionController extends Controller
         $cacheKey = "collections_tree:{$user->id}";
 
         $collections = Cache::remember($cacheKey, 300, function () use ($user) {
-            return Collection::with(['descendants', 'children'])
-                ->withCount('bookmarks')
+            return Collection::withCount('bookmarks')
                 ->where('user_id', $user->id)
-                ->whereNull('parent_id')
                 ->orderBy('sort_order')
                 ->orderBy('name')
                 ->get();
         });
 
+        // Build tree structure
+        $tree = $this->buildTree($collections);
+        
         // Add total_bookmark_count to each collection
-        $collectionsWithTotals = $this->addTotalCounts($collections);
+        $collectionsWithTotals = $this->addTotalCounts($tree, $collections);
 
         // Option to return flat list
         if ($request->boolean('flat')) {
@@ -47,35 +48,69 @@ class CollectionController extends Controller
     }
 
     /**
+     * Build tree structure from flat collection list.
+     */
+    private function buildTree($collections, $parentId = null, $depth = 0): array
+    {
+        $branch = [];
+        
+        // Limit depth to 10 levels
+        if ($depth >= 10) {
+            return $branch;
+        }
+        
+        foreach ($collections as $collection) {
+            if ($collection->parent_id == $parentId) {
+                $children = $this->buildTree($collections, $collection->id, $depth + 1);
+                
+                $item = $collection->toArray();
+                $item['children'] = $children;
+                $item['depth'] = $depth;
+                
+                $branch[] = $item;
+            }
+        }
+        
+        return $branch;
+    }
+
+    /**
      * Recursively add total bookmark counts to collections.
      */
-    private function addTotalCounts($collections): array
+    private function addTotalCounts(array $tree, $allCollections): array
     {
         $result = [];
-        foreach ($collections as $collection) {
-            $item = $collection->toArray();
-            $item['bookmark_count'] = $collection->bookmarks_count ?? $collection->bookmarks()->count();
-            $item['total_bookmark_count'] = $this->calculateTotalCount($collection);
+        
+        foreach ($tree as $item) {
+            // Find the original collection to get bookmark_count
+            $collection = $allCollections->firstWhere('id', $item['id']);
+            $item['bookmark_count'] = $collection->bookmarks_count ?? 0;
             
-            if (isset($item['descendants']) && is_array($item['descendants'])) {
-                $item['descendants'] = $this->addTotalCounts($collection->descendants);
+            // Process children recursively
+            if (!empty($item['children'])) {
+                $item['children'] = $this->addTotalCounts($item['children'], $allCollections);
             }
+            
+            // Calculate total count (direct + all children)
+            $item['total_bookmark_count'] = $this->calculateTotalFromTree($item);
             
             $result[] = $item;
         }
+        
         return $result;
     }
 
     /**
-     * Calculate total bookmark count including descendants.
+     * Calculate total bookmark count from tree structure.
      */
-    private function calculateTotalCount($collection): int
+    private function calculateTotalFromTree(array $item): int
     {
-        $count = $collection->bookmarks_count ?? $collection->bookmarks()->count();
+        $count = $item['bookmark_count'] ?? 0;
         
-        foreach ($collection->children as $child) {
-            $child->loadCount('bookmarks');
-            $count += $this->calculateTotalCount($child);
+        if (!empty($item['children'])) {
+            foreach ($item['children'] as $child) {
+                $count += $this->calculateTotalFromTree($child);
+            }
         }
         
         return $count;
@@ -84,18 +119,18 @@ class CollectionController extends Controller
     /**
      * Flatten nested collection tree.
      */
-    private function flattenCollections($collections, int $depth = 0): array
+    private function flattenCollections(array $collections, int $depth = 0): array
     {
         $flat = [];
-        foreach ($collections as $collection) {
-            $item = is_array($collection) ? $collection : $collection->toArray();
-            $item['depth'] = $depth;
-            $descendants = $item['descendants'] ?? [];
-            unset($item['descendants']);
-            $flat[] = $item;
+        foreach ($collections as $item) {
+            $children = $item['children'] ?? [];
+            $itemCopy = $item;
+            unset($itemCopy['children']);
+            $itemCopy['depth'] = $depth;
+            $flat[] = $itemCopy;
 
-            if (!empty($descendants)) {
-                $flat = array_merge($flat, $this->flattenCollections($descendants, $depth + 1));
+            if (!empty($children)) {
+                $flat = array_merge($flat, $this->flattenCollections($children, $depth + 1));
             }
         }
         return $flat;
@@ -117,14 +152,22 @@ class CollectionController extends Controller
 
         $user = $request->user();
 
-        // Verify parent ownership
+        // Verify parent ownership and check depth limit
         if (!empty($validated['parent_id'])) {
-            $parentExists = Collection::where('id', $validated['parent_id'])
+            $parent = Collection::where('id', $validated['parent_id'])
                 ->where('user_id', $user->id)
-                ->exists();
+                ->first();
             
-            if (!$parentExists) {
+            if (!$parent) {
                 return response()->json(['error' => 'Parent collection not found'], 404);
+            }
+            
+            // Check depth limit (max 10 levels)
+            $depth = $this->getCollectionDepth($parent);
+            if ($depth >= 9) { // 9 because we're adding one more level
+                return response()->json([
+                    'error' => 'Maximum nesting depth (10 levels) reached',
+                ], 422);
             }
         }
 
@@ -144,6 +187,22 @@ class CollectionController extends Controller
             'message' => 'Collection created successfully',
             'collection' => $collection,
         ], 201);
+    }
+
+    /**
+     * Get the depth of a collection in the hierarchy.
+     */
+    private function getCollectionDepth(Collection $collection): int
+    {
+        $depth = 0;
+        $parent = $collection->parent;
+        
+        while ($parent && $depth < 10) {
+            $depth++;
+            $parent = $parent->parent;
+        }
+        
+        return $depth;
     }
 
     /**

@@ -46,15 +46,18 @@ class ArchiveBookmarkJob implements ShouldQueue
      */
     public function handle(ArchiveService $archiveService): void
     {
+        // Refresh bookmark from DB to get latest status
+        $this->bookmark->refresh();
+        
         // Skip if already archived (unless forced)
         if (!$this->force && $this->bookmark->hasArchive()) {
             Log::info('Bookmark already archived, skipping', ['bookmark_id' => $this->bookmark->id]);
             return;
         }
 
-        // Skip if currently processing
-        if ($this->bookmark->isArchiving() && !$this->force) {
-            Log::info('Bookmark archive in progress, skipping', ['bookmark_id' => $this->bookmark->id]);
+        // Skip if another job is currently processing (not just pending)
+        if ($this->bookmark->archive_status === 'processing' && !$this->force) {
+            Log::info('Bookmark archive in progress by another job, skipping', ['bookmark_id' => $this->bookmark->id]);
             return;
         }
 

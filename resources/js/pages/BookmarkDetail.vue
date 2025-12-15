@@ -128,6 +128,22 @@
           <span v-if="bookmark.updated_at !== bookmark.created_at">
             Updated {{ formatDate(bookmark.updated_at) }}
           </span>
+          <span v-if="bookmark.reading_time">
+            {{ bookmark.reading_time }} min read
+          </span>
+          <span v-if="bookmark.author">
+            By {{ bookmark.author }}
+          </span>
+        </div>
+        
+        <!-- Site Info -->
+        <div v-if="bookmark.site_name || (archive && archive.language)" class="flex flex-wrap gap-4 text-sm text-gray-500">
+          <span v-if="bookmark.site_name">
+            <strong>Site:</strong> {{ bookmark.site_name }}
+          </span>
+          <span v-if="archive && archive.language">
+            <strong>Language:</strong> {{ archive.language }}
+          </span>
         </div>
       </div>
     </div>
@@ -300,15 +316,24 @@ const fetchBookmark = async () => {
     bookmark.value = response.data.bookmark || response.data.data;
     notes.value = bookmark.value?.notes || '';
     
-    // Fetch archive if exists
+    // Fetch archive if status is completed
     if (bookmark.value?.archive_status === 'completed') {
-      const archiveResponse = await axios.get(`/api/v1/bookmarks/${route.params.id}/archive`);
-      archive.value = archiveResponse.data.archive || archiveResponse.data.data;
+      await fetchArchive();
     }
   } catch (error) {
     console.error('Failed to fetch bookmark:', error);
+    bookmark.value = null;
   } finally {
     loading.value = false;
+  }
+};
+
+const fetchArchive = async () => {
+  try {
+    const response = await axios.get(`/api/v1/bookmarks/${route.params.id}/archive`);
+    archive.value = response.data.archive || response.data.data;
+  } catch (error) {
+    console.error('Failed to fetch archive:', error);
   }
 };
 

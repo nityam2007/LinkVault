@@ -176,17 +176,17 @@ php artisan cache:clear
 
 ## Queue Configuration
 
-Queues handle background tasks like archiving and imports.
+Queues handle background tasks like archiving and imports. **Using a proper queue is highly recommended** for archiving to avoid blocking HTTP requests.
 
-### Sync (Default - No Queue)
+### Sync (NOT Recommended)
 
 ```env
 QUEUE_CONNECTION=sync
 ```
 
-Tasks run immediately (blocking).
+Tasks run immediately (blocking). **Warning:** This will make bookmark creation very slow (10-45+ seconds) as archiving happens synchronously.
 
-### Database Queue
+### Database Queue (Recommended)
 
 ```env
 QUEUE_CONNECTION=database
@@ -196,19 +196,27 @@ Run migrations and start worker:
 ```bash
 php artisan queue:table
 php artisan migrate
-php artisan queue:work
+php artisan queue:work --queue=archives,default --tries=3 --timeout=120
 ```
 
-### Redis Queue (Recommended)
+**Important:** The queue worker must be running for archives to process in the background.
+
+### Redis Queue (Best Performance)
 
 ```env
 QUEUE_CONNECTION=redis
+
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=null
+REDIS_PORT=6379
 ```
 
 Start worker:
 ```bash
-php artisan queue:work redis --queue=default,archiving,imports
+php artisan queue:work redis --queue=archives,default --tries=3 --timeout=120
 ```
+
+**Note:** Requires Redis server to be running. If Redis is unavailable, use `database` queue instead.
 
 ### Supervisor Configuration
 

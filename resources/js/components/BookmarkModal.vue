@@ -270,17 +270,16 @@ const submit = async () => {
         tags: form.tags,
         is_favorite: form.is_favorite,
         notes: form.notes,
+        auto_archive: archiveAfterSave.value,
       });
-      
-      if (archiveAfterSave.value && bookmark) {
-        await bookmarkStore.archiveBookmark(bookmark.id);
-      }
     }
     
     emit('saved', bookmark);
     close();
   } catch (error) {
-    console.error('Failed to save bookmark:', error);
+    // Show user-friendly error message
+    const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Failed to save bookmark';
+    alert(errorMessage);
   } finally {
     loading.value = false;
   }
